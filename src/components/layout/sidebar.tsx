@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   BarChart3,
@@ -13,6 +13,7 @@ import {
   HardHat,
   IndianRupee,
   LayoutDashboard,
+  LogOut,
   MapPinned,
   Package,
   RotateCcw,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCrm } from "@/lib/store";
+import { useRole } from "@/lib/role-store";
 
 const MANUFACTURING_NAV = [
   { href: "/production", label: "Production", icon: Factory },
@@ -67,7 +69,7 @@ function NavLink({
     >
       <Icon
         className={cn(
-          "h-4 w-4",
+          "h-4 w-4 shrink-0",
           active ? "text-primary" : "text-sidebar-foreground/60"
         )}
       />
@@ -86,22 +88,31 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { resetDemoData } = useCrm();
+  const { roleDef, canAccess } = useRole();
+
+  const visibleMfg = MANUFACTURING_NAV.filter((item) => canAccess(item.href));
+  const visibleCrm = CRM_NAV.filter((item) => canAccess(item.href));
 
   function handleReset() {
     if (
       !window.confirm(
         "Reset all demo data to its original state? This clears every change made in this session."
       )
-    ) {
+    )
       return;
-    }
     resetDemoData();
     toast.success("Demo data reset");
   }
 
+  function handleLogout() {
+    router.push("/");
+  }
+
   return (
     <aside className="hidden md:flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar shrink-0 sticky top-0">
+      {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 border border-primary/30">
           <Cpu className="h-4.5 w-4.5 text-primary" />
@@ -114,21 +125,58 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-3 overflow-y-auto">
-        <NavLink href="/dashboard" label="Dashboard" icon={LayoutDashboard} pathname={pathname} />
+      {/* Active role chip */}
+      <div className="px-4 pt-3 pb-1">
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold"
+          style={{
+            background: roleDef.bgColor,
+            borderColor: `${roleDef.color}35`,
+            color: roleDef.color,
+          }}
+        >
+          <span className="text-base leading-none">{roleDef.emoji}</span>
+          <span className="truncate">{roleDef.label}</span>
+        </div>
+      </div>
 
-        <SectionLabel>Manufacturing</SectionLabel>
-        {MANUFACTURING_NAV.map((item) => (
-          <NavLink key={item.href} {...item} pathname={pathname} />
-        ))}
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-2 overflow-y-auto">
+        <NavLink
+          href="/dashboard"
+          label="Dashboard"
+          icon={LayoutDashboard}
+          pathname={pathname}
+        />
 
-        <SectionLabel>CRM</SectionLabel>
-        {CRM_NAV.map((item) => (
-          <NavLink key={item.href} {...item} pathname={pathname} />
-        ))}
+        {visibleMfg.length > 0 && (
+          <>
+            <SectionLabel>Manufacturing</SectionLabel>
+            {visibleMfg.map((item) => (
+              <NavLink key={item.href} {...item} pathname={pathname} />
+            ))}
+          </>
+        )}
+
+        {visibleCrm.length > 0 && (
+          <>
+            <SectionLabel>CRM</SectionLabel>
+            {visibleCrm.map((item) => (
+              <NavLink key={item.href} {...item} pathname={pathname} />
+            ))}
+          </>
+        )}
       </nav>
 
-      <div className="px-5 py-4 border-t border-sidebar-border space-y-2">
+      {/* Footer */}
+      <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors py-1"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Switch role / Logout
+        </button>
         <button
           onClick={handleReset}
           className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
@@ -137,7 +185,7 @@ export function Sidebar() {
           Reset demo data
         </button>
         <p className="text-[11px] text-muted-foreground">
-          Demo build &middot; Coimbatore
+          Demo build · Coimbatore
         </p>
       </div>
     </aside>

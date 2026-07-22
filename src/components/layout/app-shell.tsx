@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { CrmProvider } from "@/lib/store";
+import { RoleProvider } from "@/lib/role-store";
 import { Toaster } from "@/components/ui/sonner";
 
 function pageTitle(pathname: string) {
@@ -29,20 +30,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <CrmProvider>
-      <div className="flex min-h-screen w-full">
-        <Sidebar />
-        <div className="flex flex-1 flex-col min-w-0">
-          <Header title={pageTitle(pathname)} />
-          <main
-            key={pathname}
-            className="flex-1 p-6 animate-in fade-in slide-in-from-bottom-1 duration-300"
-          >
-            {children}
-          </main>
+    <RoleProvider>
+      <CrmProvider>
+        <div className="flex min-h-screen w-full">
+          <Sidebar />
+          <div className="flex flex-1 flex-col min-w-0">
+            <Header title={pageTitle(pathname)} />
+            <main
+              key={pathname}
+              className="flex-1 p-6 animate-in fade-in slide-in-from-bottom-1 duration-300"
+            >
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
-      <Toaster />
-    </CrmProvider>
+        <Toaster />
+      </CrmProvider>
+    </RoleProvider>
   );
 }

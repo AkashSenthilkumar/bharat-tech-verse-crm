@@ -3,7 +3,10 @@
 import { useState } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
+  Columns3,
+  List,
   Thermometer,
   Timer,
   User,
@@ -196,9 +199,79 @@ function MachineCard({ machine }: { machine: Machine }) {
 }
 
 type FilterStatus = "All" | MachineStatus;
+type ViewMode = "list" | "kanban";
+
+const KANBAN_COLUMNS: { status: string; label: string; color: string; bg: string }[] = [
+  { status: "Planned", label: "Planned", color: "#6b7280", bg: "bg-slate-50 border-slate-200" },
+  { status: "In Progress", label: "In Progress", color: "#d97706", bg: "bg-amber-50 border-amber-200" },
+  { status: "At Risk", label: "At Risk", color: "#dc2626", bg: "bg-rose-50 border-rose-200" },
+  { status: "Completed", label: "Completed", color: "#16a34a", bg: "bg-emerald-50 border-emerald-200" },
+];
+
+function KanbanCard({ order, onAdvance }: {
+  order: typeof PRODUCTION_ORDERS[0];
+  onAdvance: (id: string) => void;
+}) {
+  const pct = Math.round((order.produced / order.qty) * 100);
+  const canAdvance = order.status !== "Completed";
+  return (
+    <div className="bg-background border border-border rounded-lg p-3 space-y-2.5 hover:border-primary/30 transition-colors">
+      <div className="flex items-start justify-between gap-1">
+        <div className="min-w-0">
+          <p className="text-xs font-mono text-muted-foreground">{order.id}</p>
+          <p className="text-sm font-semibold leading-tight truncate mt-0.5">{order.product}</p>
+        </div>
+        <PriorityBadge priority={order.priority} />
+      </div>
+      <p className="text-xs text-muted-foreground truncate">{order.machine}</p>
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>{order.produced}/{order.qty} pcs</span>
+          <span>{pct}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+          <div
+            className={cn("h-full rounded-full", pct >= 90 ? "bg-emerald-500" : pct >= 50 ? "bg-primary" : "bg-amber-400")}
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          Due {new Date(order.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+        </p>
+        {canAdvance && (
+          <button
+            onClick={() => onAdvance(order.id)}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+          >
+            Advance <ArrowRight className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const STATUS_SEQUENCE: Record<string, string> = {
+  "Planned": "In Progress",
+  "In Progress": "Completed",
+  "At Risk": "Completed",
+};
 
 export default function ProductionPage() {
   const [filter, setFilter] = useState<FilterStatus>("All");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [orderStatuses, setOrderStatuses] = useState<Record<string, string>>(
+    () => Object.fromEntries(PRODUCTION_ORDERS.map((o) => [o.id, o.status]))
+  );
+
+  function advanceOrder(id: string) {
+    setOrderStatuses((prev) => {
+      const next = STATUS_SEQUENCE[prev[id]];
+      return next ? { ...prev, [id]: next } : prev;
+    });
+  }
 
   const running = MACHINES.filter((m) => m.status === "Running").length;
   const stopped = MACHINES.filter((m) => m.status === "Stopped").length;
@@ -289,65 +362,128 @@ export default function ProductionPage() {
         </CardContent>
       </Card>
 
-      {/* Production Orders */}
+      {/* Work Orders — List / Kanban toggle */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle>Work Orders</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Work Orders</CardTitle>
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-secondary border border-border">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                  viewMode === "list"
+                    ? "bg-background text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <List className="h-3.5 w-3.5" /> List
+              </button>
+              <button
+                onClick={() => setViewMode("kanban")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                  viewMode === "kanban"
+                    ? "bg-background text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Columns3 className="h-3.5 w-3.5" /> Kanban
+              </button>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Machine</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {PRODUCTION_ORDERS.map((order) => {
-                const pct = Math.round((order.produced / order.qty) * 100);
-                return (
-                  <TableRow
-                    key={order.id}
-                    className={cn(order.status === "At Risk" && "bg-rose-50/40")}
-                  >
-                    <TableCell className="font-mono text-sm">{order.id}</TableCell>
-                    <TableCell className="text-sm max-w-[160px] truncate">{order.product}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{order.customer}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{order.machine}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-primary"
-                            style={{ width: `${pct}%` }}
-                          />
+
+        {viewMode === "list" ? (
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Machine</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {PRODUCTION_ORDERS.map((order) => {
+                  const currentStatus = orderStatuses[order.id] ?? order.status;
+                  const pct = Math.round((order.produced / order.qty) * 100);
+                  return (
+                    <TableRow
+                      key={order.id}
+                      className={cn(currentStatus === "At Risk" && "bg-rose-50/40")}
+                    >
+                      <TableCell className="font-mono text-sm">{order.id}</TableCell>
+                      <TableCell className="text-sm max-w-[160px] truncate">{order.product}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{order.customer}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{order.machine}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground w-12">{order.produced}/{order.qty}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground w-12">
-                          {order.produced}/{order.qty}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(order.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                    </TableCell>
-                    <TableCell>
-                      <PriorityBadge priority={order.priority} />
-                    </TableCell>
-                    <TableCell>
-                      <ProductionStatusBadge status={order.status} />
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(order.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                      </TableCell>
+                      <TableCell><PriorityBadge priority={order.priority} /></TableCell>
+                      <TableCell><ProductionStatusBadge status={currentStatus} /></TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        ) : (
+          <CardContent className="pt-2 pb-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {KANBAN_COLUMNS.map((col) => {
+                const cards = PRODUCTION_ORDERS.filter(
+                  (o) => (orderStatuses[o.id] ?? o.status) === col.status
+                );
+                return (
+                  <div key={col.status} className="space-y-2">
+                    <div className={cn("flex items-center justify-between px-2.5 py-2 rounded-lg border", col.bg)}>
+                      <p className="text-xs font-bold" style={{ color: col.color }}>
+                        {col.label}
+                      </p>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: `${col.color}20`, color: col.color }}
+                      >
+                        {cards.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2 min-h-[120px]">
+                      {cards.map((order) => (
+                        <KanbanCard
+                          key={order.id}
+                          order={{ ...order, status: (orderStatuses[order.id] ?? order.status) as typeof order.status }}
+                          onAdvance={advanceOrder}
+                        />
+                      ))}
+                      {cards.length === 0 && (
+                        <div className="h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center">
+                          <p className="text-xs text-muted-foreground">No orders</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
-            </TableBody>
-          </Table>
-        </CardContent>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 text-right">
+              Click "Advance →" on a card to move it to the next stage
+            </p>
+          </CardContent>
+        )}
       </Card>
 
       {/* Shift Performance */}
