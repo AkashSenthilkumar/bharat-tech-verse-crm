@@ -2,34 +2,72 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, Cpu, Lock } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Cpu, Loader2, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROLE_DEFS, type UserRole } from "@/lib/role-store";
+import { supabase, isSupabaseEnabled } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+
+// Demo credentials — match what you create in Supabase Auth dashboard
+const DEMO_EMAIL: Record<UserRole, string> = {
+  "md":                    "md@btv-demo.com",
+  "plant-manager":         "plant@btv-demo.com",
+  "production-supervisor": "production@btv-demo.com",
+  "machine-operator":      "operator@btv-demo.com",
+  "quality-inspector":     "quality@btv-demo.com",
+  "finance-manager":       "finance@btv-demo.com",
+  "procurement-manager":   "procurement@btv-demo.com",
+  "sales-executive":       "sales@btv-demo.com",
+};
 
 export default function LoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<"role" | "password">("role");
+  const [step, setStep] = useState<"role" | "credentials">("role");
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const roleDef = ROLE_DEFS.find((r) => r.id === selectedRole);
 
   function handleRoleSelect(r: UserRole) {
     setSelectedRole(r);
+    setError(null);
   }
 
   function handleRoleConfirm() {
-    if (selectedRole) setStep("password");
+    if (!selectedRole) return;
+    setEmail(isSupabaseEnabled ? DEMO_EMAIL[selectedRole] : "");
+    setPassword("");
+    setError(null);
+    setStep("credentials");
   }
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedRole) return;
-    // persist role before navigating
-    window.localStorage.setItem("ott-user-role-v1", selectedRole);
+    setLoading(true);
+    setError(null);
+
+    if (isSupabaseEnabled && supabase) {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+      // Role is loaded from user_profiles in RoleProvider after redirect
+    } else {
+      // Demo mode — any password accepted
+      window.localStorage.setItem("ott-user-role-v1", selectedRole);
+    }
+
     router.push("/dashboard");
   }
 
@@ -56,7 +94,7 @@ export default function LoginPage() {
               "10 manufacturing intelligence modules",
               "Role-based access for 8 user types",
               "Real-time machine status & OEE",
-              "AI anomaly detection & predictions",
+              "PostgreSQL database via Supabase",
               "CRM pipeline for B2B sales",
             ].map((cap) => (
               <div key={cap} className="flex items-start gap-2.5 py-2.5 border-b border-sidebar-border last:border-0">
@@ -67,9 +105,15 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground">
-          Demo build · Coimbatore · Auto Parts Manufacturing
-        </p>
+        <div className="space-y-1">
+          <p className="text-[11px] text-muted-foreground">Demo build · Coimbatore · Auto Parts Manufacturing</p>
+          {isSupabaseEnabled && (
+            <p className="text-[11px] text-emerald-500 font-medium">● Connected to Supabase</p>
+          )}
+          {!isSupabaseEnabled && (
+            <p className="text-[11px] text-amber-500 font-medium">● Demo mode — mock data</p>
+          )}
+        </div>
       </div>
 
       {/* Right panel — login form */}
@@ -134,15 +178,13 @@ export default function LoginPage() {
             </div>
           ) : (
             <div className="max-w-sm">
-              {/* Back link */}
               <button
-                onClick={() => setStep("role")}
+                onClick={() => { setStep("role"); setError(null); }}
                 className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6 transition-colors"
               >
                 ← Change role
               </button>
 
-              {/* Selected role chip */}
               {roleDef && (
                 <div
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border mb-6 text-sm font-medium"
@@ -161,10 +203,31 @@ export default function LoginPage() {
                 Welcome back
               </h1>
               <p className="text-sm text-muted-foreground mb-8">
-                Enter your credentials to access the platform.
+                {isSupabaseEnabled
+                  ? "Sign in with your Supabase account credentials."
+                  : "Demo mode — any password will sign you in."}
               </p>
 
               <form onSubmit={handleLogin} className="space-y-4">
+                {isSupabaseEnabled && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="demo@btv-demo.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-11 pl-9"
+                        autoFocus
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
@@ -176,19 +239,40 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="h-11 pl-9"
-                      autoFocus
+                      autoFocus={!isSupabaseEnabled}
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full h-11 gap-2 mt-2">
-                  Sign in
-                  <ArrowRight className="h-4 w-4" />
+
+                {error && (
+                  <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 px-3 py-2.5 text-sm text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    {error}
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full h-11 gap-2 mt-2" disabled={loading}>
+                  {loading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Signing in…</>
+                  ) : (
+                    <>Sign in <ArrowRight className="h-4 w-4" /></>
+                  )}
                 </Button>
               </form>
 
-              <p className="text-xs text-muted-foreground mt-6">
-                Demo build · any password will sign you in
-              </p>
+              {isSupabaseEnabled ? (
+                <div className="mt-6 rounded-lg border border-border bg-secondary/40 p-3">
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Demo credentials</p>
+                  <p className="text-[11px] text-muted-foreground font-mono">
+                    {selectedRole && DEMO_EMAIL[selectedRole]}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground font-mono">Password: Demo@2025</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-6">
+                  Demo mode · any password accepted · no Supabase configured
+                </p>
+              )}
             </div>
           )}
         </div>

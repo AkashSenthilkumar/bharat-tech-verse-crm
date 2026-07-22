@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useCrm } from "@/lib/store";
 import { useRole } from "@/lib/role-store";
+import { supabase, isSupabaseEnabled } from "@/lib/supabase";
 
 const MANUFACTURING_NAV = [
   { href: "/production", label: "Production", icon: Factory },
@@ -106,7 +107,9 @@ export function Sidebar() {
     toast.success("Demo data reset");
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    window.localStorage.removeItem("ott-user-role-v1");
+    if (isSupabaseEnabled && supabase) await supabase.auth.signOut();
     router.push("/");
   }
 

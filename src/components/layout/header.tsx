@@ -25,6 +25,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCrm } from "@/lib/store";
 import { useRole } from "@/lib/role-store";
+import { supabase, isSupabaseEnabled } from "@/lib/supabase";
 import { TODAY } from "@/lib/data";
 import {
   MACHINES,
@@ -264,7 +265,13 @@ export function Header({ title }: { title: string }) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/")}>
+            <DropdownMenuItem
+              onClick={async () => {
+                window.localStorage.removeItem("ott-user-role-v1");
+                if (isSupabaseEnabled && supabase) await supabase.auth.signOut();
+                router.push("/");
+              }}
+            >
               <LogOut className="h-4 w-4" /> Switch role / Logout
             </DropdownMenuItem>
           </DropdownMenuContent>

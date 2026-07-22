@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { supabase, isSupabaseEnabled } from "@/lib/supabase";
 
 export type UserRole =
   | "md"
@@ -26,7 +27,6 @@ export interface RoleDefinition {
   color: string;
   bgColor: string;
   description: string;
-  // nav hrefs this role can see; "*" means all
   navAccess: string[] | "*";
 }
 
@@ -152,9 +152,30 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<UserRole>("md");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(ROLE_KEY) as UserRole | null;
-    if (stored && ROLE_DEFS.find((r) => r.id === stored)) {
-      setRoleState(stored);
+    if (isSupabaseEnabled && supabase) {
+      // Read role from Supabase user_profiles
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (session) {
+          const { data } = await supabase!
+            .from("user_profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single();
+          const serverRole = data?.role as UserRole | undefined;
+          if (serverRole && ROLE_DEFS.find((r) => r.id === serverRole)) {
+            setRoleState(serverRole);
+            window.localStorage.setItem(ROLE_KEY, serverRole);
+            return;
+          }
+        }
+        // Fallback: read from localStorage (set during role selection on login page)
+        const stored = window.localStorage.getItem(ROLE_KEY) as UserRole | null;
+        if (stored && ROLE_DEFS.find((r) => r.id === stored)) setRoleState(stored);
+      });
+    } else {
+      // Demo mode: use localStorage only
+      const stored = window.localStorage.getItem(ROLE_KEY) as UserRole | null;
+      if (stored && ROLE_DEFS.find((r) => r.id === stored)) setRoleState(stored);
     }
   }, []);
 
