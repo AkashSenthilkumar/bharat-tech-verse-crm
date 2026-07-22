@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bharat Tech Verse | CRM",
-  description: "CRM demo for real estate and interior design teams in Coimbatore.",
+  title: "One To Technologies | Platform",
+  description: "AI-powered Operational Intelligence Platform for Indian Manufacturing MSMEs.",
 };
 
 export default function RootLayout({

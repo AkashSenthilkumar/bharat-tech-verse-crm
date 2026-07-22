@@ -25,9 +25,9 @@ export default function LoginPage() {
             <Gem className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-center">
-            Bharat Tech Verse
+            One To Technologies
           </h1>
-          <p className="text-sm text-muted-foreground">CRM Suite</p>
+          <p className="text-sm text-muted-foreground">Platform</p>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-lg shadow-black/20">

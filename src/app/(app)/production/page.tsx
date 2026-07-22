@@ -1,0 +1,407 @@
+"use client";
+
+import { useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Thermometer,
+  Timer,
+  User,
+  Wrench,
+  XCircle,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { MachineTargetChart } from "@/components/manufacturing/charts";
+import {
+  MACHINES,
+  PRODUCTION_ORDERS,
+  SHIFT_PERFORMANCE,
+  FACTORY_STATS,
+  type Machine,
+  type MachineStatus,
+} from "@/lib/manufacturing-data";
+import { cn } from "@/lib/utils";
+
+function MachineBadge({ status }: { status: MachineStatus }) {
+  const styles: Record<MachineStatus, string> = {
+    Running: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Stopped: "bg-rose-50 text-rose-700 border-rose-200",
+    Maintenance: "bg-amber-50 text-amber-700 border-amber-200",
+  };
+  const icons: Record<MachineStatus, typeof CheckCircle2> = {
+    Running: CheckCircle2,
+    Stopped: XCircle,
+    Maintenance: Wrench,
+  };
+  const Icon = icons[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border",
+        styles[status]
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {status}
+    </span>
+  );
+}
+
+function ProductionStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    "In Progress": "bg-amber-50 text-amber-700 border-amber-200",
+    Completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    "At Risk": "bg-rose-50 text-rose-700 border-rose-200",
+    Planned: "bg-slate-50 text-slate-600 border-slate-200",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border",
+        styles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const styles: Record<string, string> = {
+    High: "text-rose-600 bg-rose-50",
+    Medium: "text-amber-600 bg-amber-50",
+    Low: "text-slate-500 bg-slate-50",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+        styles[priority] ?? "text-slate-500 bg-slate-50"
+      )}
+    >
+      {priority}
+    </span>
+  );
+}
+
+function MachineCard({ machine }: { machine: Machine }) {
+  const pct = Math.round((machine.produced / machine.target) * 100);
+  const isStopped = machine.status === "Stopped";
+  const isMaintenance = machine.status === "Maintenance";
+
+  return (
+    <Card
+      className={cn(
+        isStopped && "border-rose-200 bg-rose-50/30",
+        isMaintenance && "border-amber-200 bg-amber-50/20"
+      )}
+    >
+      <CardContent className="pt-4 pb-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-semibold text-sm">{machine.name}</p>
+            <p className="text-xs text-muted-foreground">{machine.type}</p>
+          </div>
+          <MachineBadge status={machine.status} />
+        </div>
+
+        {/* Operator */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <User className="h-3.5 w-3.5" />
+          {machine.operator} · Shift {machine.shift}
+        </div>
+
+        {/* Production progress */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Production</span>
+            <span className="font-semibold">
+              {machine.produced} / {machine.target} pcs
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-secondary overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                pct >= 90
+                  ? "bg-emerald-500"
+                  : pct >= 70
+                  ? "bg-primary"
+                  : "bg-rose-400"
+              )}
+              style={{ width: `${Math.min(pct, 100)}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground text-right">{pct}% of target</p>
+        </div>
+
+        {/* Metrics row */}
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="text-center p-1.5 rounded-md bg-secondary/50">
+            <p className="text-xs font-bold">{machine.oee}%</p>
+            <p className="text-[10px] text-muted-foreground">OEE</p>
+          </div>
+          <div className="text-center p-1.5 rounded-md bg-secondary/50">
+            <p className="text-xs font-bold flex items-center justify-center gap-0.5">
+              <Thermometer className="h-3 w-3" />
+              {machine.temperature > 0 ? `${machine.temperature}°` : "—"}
+            </p>
+            <p className="text-[10px] text-muted-foreground">Temp</p>
+          </div>
+          <div className="text-center p-1.5 rounded-md bg-secondary/50">
+            <p className="text-xs font-bold flex items-center justify-center gap-0.5">
+              <Timer className="h-3 w-3" />
+              {machine.downtime === "0m" ? "0m" : machine.downtime}
+            </p>
+            <p className="text-[10px] text-muted-foreground">D/T</p>
+          </div>
+        </div>
+
+        {/* Alerts */}
+        {machine.alerts.length > 0 && (
+          <div className="space-y-1">
+            {machine.alerts.map((alert, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-start gap-1.5 text-[11px] px-2 py-1.5 rounded",
+                  isStopped
+                    ? "bg-rose-100/80 text-rose-700"
+                    : "bg-amber-100/80 text-amber-700"
+                )}
+              >
+                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                {alert}
+              </div>
+            ))}
+          </div>
+        )}
+        {machine.alerts.length === 0 && (
+          <p className="text-[11px] text-emerald-600 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" /> No alerts
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+type FilterStatus = "All" | MachineStatus;
+
+export default function ProductionPage() {
+  const [filter, setFilter] = useState<FilterStatus>("All");
+
+  const running = MACHINES.filter((m) => m.status === "Running").length;
+  const stopped = MACHINES.filter((m) => m.status === "Stopped").length;
+  const maintenance = MACHINES.filter((m) => m.status === "Maintenance").length;
+
+  const filtered =
+    filter === "All" ? MACHINES : MACHINES.filter((m) => m.status === filter);
+
+  const machineChartData = MACHINES.map((m) => ({
+    name: m.name.replace("Machine ", "M/C ").replace(" Machine", ""),
+    target: m.target,
+    produced: m.produced,
+  }));
+
+  const activeOrders = PRODUCTION_ORDERS.filter(
+    (o) => o.status !== "Planned"
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Summary row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Today's Target", value: `${FACTORY_STATS.todayTarget.toLocaleString()} pcs`, color: "text-foreground" },
+          { label: "Produced", value: `${FACTORY_STATS.todayProduced.toLocaleString()} pcs`, color: "text-primary" },
+          { label: "OEE", value: `${FACTORY_STATS.oee}%`, color: "text-amber-600" },
+          { label: "Rejection Rate", value: `${FACTORY_STATS.rejectionRate}%`, color: "text-rose-600" },
+        ].map((s) => (
+          <Card key={s.label}>
+            <CardContent className="pt-4 pb-4">
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className={cn("text-xl font-bold mt-1", s.color)}>{s.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Machine filter tabs */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {(["All", "Running", "Stopped", "Maintenance"] as FilterStatus[]).map((f) => {
+          const count =
+            f === "All"
+              ? MACHINES.length
+              : f === "Running"
+              ? running
+              : f === "Stopped"
+              ? stopped
+              : maintenance;
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium border transition-colors",
+                filter === f
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              {f}{" "}
+              <span
+                className={cn(
+                  "ml-1 text-xs",
+                  filter === f ? "opacity-80" : "opacity-60"
+                )}
+              >
+                ({count})
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Machine cards grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {filtered.map((machine) => (
+          <MachineCard key={machine.id} machine={machine} />
+        ))}
+      </div>
+
+      {/* Target vs Actual chart */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Machine-wise Target vs Actual (Today)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MachineTargetChart data={machineChartData} />
+        </CardContent>
+      </Card>
+
+      {/* Production Orders */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Work Orders</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Machine</TableHead>
+                <TableHead>Progress</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {PRODUCTION_ORDERS.map((order) => {
+                const pct = Math.round((order.produced / order.qty) * 100);
+                return (
+                  <TableRow
+                    key={order.id}
+                    className={cn(order.status === "At Risk" && "bg-rose-50/40")}
+                  >
+                    <TableCell className="font-mono text-sm">{order.id}</TableCell>
+                    <TableCell className="text-sm max-w-[160px] truncate">{order.product}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{order.customer}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{order.machine}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-12">
+                          {order.produced}/{order.qty}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(order.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                    </TableCell>
+                    <TableCell>
+                      <PriorityBadge priority={order.priority} />
+                    </TableCell>
+                    <TableCell>
+                      <ProductionStatusBadge status={order.status} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Shift Performance */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Shift Performance</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Shift</TableHead>
+                <TableHead>Target</TableHead>
+                <TableHead>Actual</TableHead>
+                <TableHead>Achievement</TableHead>
+                <TableHead>OEE</TableHead>
+                <TableHead>Operators</TableHead>
+                <TableHead>Rejections</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {SHIFT_PERFORMANCE.map((shift) => {
+                const achievement = Math.round((shift.actual / shift.target) * 100);
+                return (
+                  <TableRow key={shift.shift}>
+                    <TableCell className="font-medium text-sm">{shift.shift}</TableCell>
+                    <TableCell className="text-sm">{shift.target.toLocaleString()}</TableCell>
+                    <TableCell className="text-sm font-semibold">{shift.actual.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              achievement >= 90 ? "bg-emerald-500" : achievement >= 75 ? "bg-primary" : "bg-rose-400"
+                            )}
+                            style={{ width: `${Math.min(achievement, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{achievement}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className={cn("text-sm font-semibold", shift.oee >= 85 ? "text-emerald-600" : "text-amber-600")}>
+                      {shift.oee}%
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{shift.operators}</TableCell>
+                    <TableCell className="text-sm text-rose-600 font-medium">{shift.rejections}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -8,12 +8,15 @@ import { Toaster } from "@/components/ui/sonner";
 
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/dashboard")) return "Dashboard";
+  if (pathname.startsWith("/production")) return "Production Intelligence";
+  if (pathname.startsWith("/inventory")) return "Inventory Intelligence";
+  if (pathname.startsWith("/procurement")) return "Procurement Intelligence";
   if (pathname.startsWith("/leads/")) return "Lead Details";
   if (pathname.startsWith("/leads")) return "Leads";
   if (pathname.startsWith("/followups")) return "Follow-ups";
   if (pathname.startsWith("/site-visits")) return "Site Visits";
   if (pathname.startsWith("/reports")) return "Reports";
-  return "Bharat Tech Verse CRM";
+  return "One To Technologies";
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {

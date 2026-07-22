@@ -24,7 +24,7 @@ import type {
   TimelineEvent,
 } from "@/lib/types";
 
-const STORAGE_KEY = "btv-crm-data-v1";
+const STORAGE_KEY = "ott-platform-data-v1";
 
 interface AddFollowUpInput {
   date: string;
