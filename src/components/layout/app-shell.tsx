@@ -11,6 +11,12 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/production")) return "Production Intelligence";
   if (pathname.startsWith("/inventory")) return "Inventory Intelligence";
   if (pathname.startsWith("/procurement")) return "Procurement Intelligence";
+  if (pathname.startsWith("/quality")) return "Quality Intelligence";
+  if (pathname.startsWith("/workforce")) return "Workforce Intelligence";
+  if (pathname.startsWith("/orders")) return "Order Intelligence";
+  if (pathname.startsWith("/finance")) return "Finance Intelligence";
+  if (pathname.startsWith("/energy")) return "Energy Intelligence";
+  if (pathname.startsWith("/vision")) return "Factory Vision Intelligence";
   if (pathname.startsWith("/leads/")) return "Lead Details";
   if (pathname.startsWith("/leads")) return "Leads";
   if (pathname.startsWith("/followups")) return "Follow-ups";

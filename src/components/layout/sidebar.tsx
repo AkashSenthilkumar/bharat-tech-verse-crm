@@ -6,14 +6,20 @@ import { toast } from "sonner";
 import {
   BarChart3,
   CalendarClock,
+  Camera,
+  ClipboardList,
   Cpu,
   Factory,
+  HardHat,
+  IndianRupee,
   LayoutDashboard,
   MapPinned,
   Package,
   RotateCcw,
+  ShieldCheck,
   Truck,
   Users,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCrm } from "@/lib/store";
@@ -22,6 +28,12 @@ const MANUFACTURING_NAV = [
   { href: "/production", label: "Production", icon: Factory },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/procurement", label: "Procurement", icon: Truck },
+  { href: "/quality", label: "Quality", icon: ShieldCheck },
+  { href: "/workforce", label: "Workforce", icon: HardHat },
+  { href: "/orders", label: "Orders", icon: ClipboardList },
+  { href: "/finance", label: "Finance", icon: IndianRupee },
+  { href: "/energy", label: "Energy", icon: Zap },
+  { href: "/vision", label: "Factory Vision", icon: Camera },
 ];
 
 const CRM_NAV = [
